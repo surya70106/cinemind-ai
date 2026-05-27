@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import api from '../services/api';
+import { searchShows } from '../lib/tvmaze';
 
 export default function SearchBar({ mobile = false }) {
   const [expanded, setExpanded] = useState(mobile);
@@ -43,8 +43,8 @@ export default function SearchBar({ mobile = false }) {
     timerRef.current = setTimeout(async () => {
       setLoading(true);
       try {
-        const { data } = await api.get(`/movies/search?q=${encodeURIComponent(query)}`);
-        const items = data?.data?.results || data?.results || data?.data || [];
+        const data = await searchShows(query);
+        const items = data?.results || [];
         setResults(Array.isArray(items) ? items.slice(0, 6) : []);
         setShowResults(true);
       } catch {

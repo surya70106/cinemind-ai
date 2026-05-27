@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import api from '../services/api';
+import { searchShows, getPopular, getTopRated, getTrending } from '../lib/tvmaze';
 import MoodSelector from '../components/MoodSelector';
 import GenreChips from '../components/GenreChips';
 import MovieCard from '../components/MovieCard';
@@ -28,7 +28,7 @@ export default function Discover() {
     }
   }, []);
 
-  // Search by mood using AI
+  // Search by mood using Claude AI via Vercel serverless function
   const handleMoodDiscover = async (overrideMood) => {
     const selectedMood = overrideMood || mood;
     if (!selectedMood) return;
@@ -36,12 +36,18 @@ export default function Discover() {
     setLoading(true);
     setHasSearched(true);
     try {
-      const { data } = await api.post('/ai/recommend', {
-        mood: selectedMood,
-        genre: genres.join(', '),
-        referenceMovie,
-        actor,
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'recommend',
+          mood: selectedMood,
+          genre: genres.join(', '),
+          referenceMovie,
+          actor,
+        }),
       });
+      const data = await res.json();
       setResults(data.data || data.results || []);
     } catch {
       setResults([]);
@@ -62,12 +68,11 @@ export default function Discover() {
       const seenIds = new Set();
 
       for (const genre of genres.slice(0, 3)) {
-        const { data } = await api.get(`/movies/search?q=${encodeURIComponent(genre)}`);
-        const items = data?.data?.results || data?.data || data?.results || data || [];
+        const data = await searchShows(genre);
+        const items = data?.results || [];
         if (Array.isArray(items)) {
           for (const item of items) {
             if (!seenIds.has(item.id)) {
-              // Filter by genre match
               const showGenres = (item.genres || item.genre_names || []).map(g =>
                 typeof g === 'string' ? g.toLowerCase() : (g.name || '').toLowerCase()
               );
@@ -82,11 +87,11 @@ export default function Discover() {
       }
 
       // Also search popular + top-rated and filter by genre
-      const endpoints = ['/movies/popular', '/movies/top-rated', '/movies/trending'];
-      for (const endpoint of endpoints) {
+      const listFetchers = [getPopular, getTopRated, getTrending];
+      for (const fetcher of listFetchers) {
         try {
-          const { data } = await api.get(endpoint);
-          const items = data?.data?.results || data?.data || data?.results || data || [];
+          const data = await fetcher();
+          const items = data?.results || [];
           if (Array.isArray(items)) {
             for (const item of items) {
               if (!seenIds.has(item.id)) {

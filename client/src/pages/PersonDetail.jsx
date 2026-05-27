@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import api from '../services/api';
+import { getPersonDetails } from '../lib/tvmaze';
 import { useNavbarHeight } from '../hooks/useNavbarHeight';
 
 
@@ -20,8 +20,8 @@ export default function PersonDetail() {
       setLoading(true);
       setError(null);
       try {
-        const { data } = await api.get(`/movies/person/${id}`);
-        setPerson(data.data || data);
+        const data = await getPersonDetails(id);
+        setPerson(data);
       } catch {
         setError('Person not found');
       } finally {

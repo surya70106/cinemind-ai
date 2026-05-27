@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router';
-import api from '../services/api';
+import { getShowDetails } from '../lib/tvmaze';
 
 const staggerItem = {
   hidden: { opacity: 0, y: 20 },
@@ -18,10 +18,12 @@ export default function HeroSection() {
     const fetchHeroShows = async () => {
       try {
         const ids = [555, 66, 431]; // Avatar, Big Bang Theory, Friends
-        const promises = ids.map(id => api.get(`/movies/${id}`));
-        const responses = await Promise.all(promises);
-        const fetchedShows = responses.map(res => res.data?.data || res.data);
-        setShows(fetchedShows.filter(Boolean));
+        const results = await Promise.allSettled(ids.map((id) => getShowDetails(id)));
+        const fetchedShows = results
+          .filter((r) => r.status === 'fulfilled')
+          .map((r) => r.value)
+          .filter(Boolean);
+        setShows(fetchedShows);
       } catch (err) {
         console.error('Failed to fetch hero shows:', err);
       } finally {

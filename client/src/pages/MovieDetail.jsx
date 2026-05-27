@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import { motion } from 'motion/react';
-import api from '../services/api';
+import { getShowDetails, getSimilarShows } from '../lib/tvmaze';
 import { useWatchlist } from '../context/WatchlistContext';
 import MovieCarousel from '../components/MovieCarousel';
 
@@ -32,13 +32,12 @@ export default function MovieDetail() {
       setLoading(true);
       setError(null);
       try {
-        const { data } = await api.get(`/movies/${id}`);
-        const movieData = data.data || data;
+        const movieData = await getShowDetails(id);
         setMovie(movieData);
 
         try {
-          const { data: simData } = await api.get(`/movies/${id}/similar`);
-          const simResults = simData?.data?.results || simData?.results || simData?.data || [];
+          const simData = await getSimilarShows(id);
+          const simResults = simData?.results || [];
           setSimilar(Array.isArray(simResults) ? simResults : []);
         } catch {
           setSimilar([]);

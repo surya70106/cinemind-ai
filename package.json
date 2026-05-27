@@ -1,0 +1,9 @@
+{
+  "name": "cinemind",
+  "version": "1.0.0",
+  "description": "CineMind AI - TV show discovery powered by TVMaze + Claude AI",
+  "private": true,
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.3"
+  }
+}
