@@ -4,7 +4,7 @@
  */
 
 const TVMAZE_DIRECT = 'https://api.tvmaze.com';
-const USE_PROXY = import.meta.env.PROD;
+const USE_PROXY = false;
 
 /** Simple in-memory cache to avoid hammering the API */
 const _cache = new Map();
