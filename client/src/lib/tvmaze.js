@@ -1,12 +1,43 @@
 /**
  * TVMaze API — public, no API key required.
- * All poster_path / backdrop_path are full URLs, use them directly in <img src={...} />.
+ * Production uses /api/tvmaze proxy (Vercel serverless) to avoid browser CORS/network issues.
  */
 
-const BASE = 'https://api.tvmaze.com';
+const TVMAZE_DIRECT = 'https://api.tvmaze.com';
+const USE_PROXY = import.meta.env.PROD;
 
 /** Simple in-memory cache to avoid hammering the API */
 const _cache = new Map();
+
+async function tvmazeFetch(path, query = {}) {
+  let res;
+  const cleanPath = path.replace(/^\/+/, '');
+
+  if (USE_PROXY) {
+    const params = new URLSearchParams();
+    params.set('path', cleanPath);
+    Object.entries(query).forEach(([key, value]) => {
+      if (value == null) return;
+      if (Array.isArray(value)) {
+        value.forEach((v) => params.append(key, String(v)));
+      } else {
+        params.set(key, String(value));
+      }
+    });
+    res = await fetch(`/api/tvmaze?${params}`);
+  } else {
+    const qs = new URLSearchParams(query).toString();
+    const url = `${TVMAZE_DIRECT}/${cleanPath}${qs ? `?${qs}` : ''}`;
+    res = await fetch(url);
+  }
+
+  if (!res.ok) {
+    throw new Error(`TVMaze request failed (${res.status}): ${path}`);
+  }
+
+  return res.json();
+}
+
 async function cached(key, fn, ttl = 30 * 60 * 1000) {
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.ts < ttl) return hit.data;
@@ -21,8 +52,8 @@ function normalizeShow(show) {
     id: show.id,
     title: show.name,
     name: show.name,
-    poster_path: show.image?.medium || null,
-    backdrop_path: show.image?.original || null,
+    poster_path: show.image?.medium || show.image?.original || null,
+    backdrop_path: show.image?.original || show.image?.medium || null,
     vote_average: show.rating?.average || 0,
     release_date: show.premiered || '',
     overview: show.summary ? show.summary.replace(/<[^>]+>/g, '') : '',
@@ -41,18 +72,27 @@ function normalizeSearchResult(item) {
   return normalizeShow(item.show);
 }
 
+function sortByRating(shows, limit = 20) {
+  const rated = shows
+    .filter((s) => s.rating?.average)
+    .sort((a, b) => (b.rating?.average || 0) - (a.rating?.average || 0));
+
+  const picked = rated.length > 0 ? rated : shows;
+  return picked.slice(0, limit).map(normalizeShow);
+}
+
 // ── List endpoints ──────────────────────────────────────────
 
 export async function getTrending() {
   return cached('trending', async () => {
-    const res = await fetch(`${BASE}/schedule`);
-    const data = await res.json();
+    const data = await tvmazeFetch('schedule');
     const seen = new Set();
     const shows = [];
     for (const ep of data) {
       if (ep.show && !seen.has(ep.show.id)) {
         seen.add(ep.show.id);
-        shows.push(normalizeShow(ep.show));
+        const normalized = normalizeShow(ep.show);
+        if (normalized) shows.push(normalized);
       }
       if (shows.length >= 20) break;
     }
@@ -63,45 +103,39 @@ export async function getTrending() {
 export async function getPopular(page = 1) {
   return cached(`popular_${page}`, async () => {
     const pageIndex = Math.max(0, Number(page) - 1);
-    const res = await fetch(`${BASE}/shows?page=${pageIndex}`);
-    const data = await res.json();
-    const sorted = data
-      .filter((s) => s.rating?.average)
-      .sort((a, b) => (b.rating?.average || 0) - (a.rating?.average || 0))
-      .slice(0, 20);
-    return { results: sorted.map(normalizeShow) };
+    const data = await tvmazeFetch('shows', { page: String(pageIndex) });
+    return { results: sortByRating(data) };
   });
 }
 
 export async function getTopRated(page = 1) {
   return cached(`top_rated_${page}`, async () => {
     const pageIndex = Math.max(0, Number(page) - 1);
-    const res = await fetch(`${BASE}/shows?page=${pageIndex}`);
-    const data = await res.json();
+    const data = await tvmazeFetch('shows', { page: String(pageIndex) });
     const sorted = data
       .filter((s) => s.rating?.average && s.rating.average >= 7)
       .sort((a, b) => (b.rating?.average || 0) - (a.rating?.average || 0))
       .slice(0, 20);
-    return { results: sorted.map(normalizeShow) };
+    const results = sorted.length > 0 ? sorted.map(normalizeShow) : sortByRating(data);
+    return { results };
   });
 }
 
 export async function getHiddenGems() {
   return cached('hidden_gems', async () => {
-    const res = await fetch(`${BASE}/shows?page=2`);
-    const data = await res.json();
+    const data = await tvmazeFetch('shows', { page: '2' });
     const gems = data
       .filter((s) => s.rating?.average && s.rating.average >= 7.5 && s.image)
       .sort((a, b) => (b.rating?.average || 0) - (a.rating?.average || 0))
       .slice(0, 20);
-    return { results: gems.map(normalizeShow) };
+    const results = gems.length > 0 ? gems.map(normalizeShow) : sortByRating(data.filter((s) => s.image));
+    return { results };
   });
 }
 
 export async function searchShows(query) {
   if (!query?.trim()) return { results: [] };
-  const res = await fetch(`${BASE}/search/shows?q=${encodeURIComponent(query)}`);
-  const data = await res.json();
+  const data = await tvmazeFetch('search/shows', { q: query.trim() });
   return { results: data.map(normalizeSearchResult).filter(Boolean) };
 }
 
@@ -109,8 +143,9 @@ export async function searchShows(query) {
 
 export async function getShowDetails(id) {
   return cached(`show_${id}`, async () => {
-    const res = await fetch(`${BASE}/shows/${id}?embed[]=cast&embed[]=episodes`);
-    const data = await res.json();
+    const data = await tvmazeFetch(`shows/${id}`, {
+      'embed[]': ['cast', 'episodes'],
+    });
     const show = normalizeShow(data);
 
     show.credits = {
@@ -132,19 +167,19 @@ export async function getShowDetails(id) {
 export async function getSimilarShows(id) {
   return cached(`similar_${id}`, async () => {
     try {
-      const res = await fetch(`${BASE}/shows/${id}`);
-      const show = await res.json();
+      const show = await tvmazeFetch(`shows/${id}`);
       const genre = show.genres?.[0];
       if (genre) {
-        const sRes = await fetch(`${BASE}/search/shows?q=${encodeURIComponent(genre)}`);
-        const searchResults = await sRes.json();
+        const searchResults = await tvmazeFetch('search/shows', { q: genre });
         const results = searchResults
           .map(normalizeSearchResult)
           .filter((s) => s && s.id !== Number(id))
           .slice(0, 12);
         return { results };
       }
-    } catch {}
+    } catch (err) {
+      console.error('getSimilarShows failed:', err);
+    }
     return { results: [] };
   });
 }
@@ -152,9 +187,9 @@ export async function getSimilarShows(id) {
 export async function getPersonDetails(id) {
   return cached(`person_${id}`, async () => {
     const [personRes, creditsRes, imagesRes] = await Promise.allSettled([
-      fetch(`${BASE}/people/${id}`).then((r) => r.json()),
-      fetch(`${BASE}/people/${id}/castcredits?embed=show`).then((r) => r.json()),
-      fetch(`${BASE}/people/${id}/images`).then((r) => r.json()),
+      tvmazeFetch(`people/${id}`),
+      tvmazeFetch(`people/${id}/castcredits`, { embed: 'show' }),
+      tvmazeFetch(`people/${id}/images`),
     ]);
 
     const person = personRes.status === 'fulfilled' ? personRes.value : {};

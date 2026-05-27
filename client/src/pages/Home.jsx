@@ -22,7 +22,10 @@ export default function Home() {
           const d = result?.results || result;
           setData((prev) => ({ ...prev, [key]: Array.isArray(d) ? d : [] }));
         })
-        .catch(() => {})
+        .catch((err) => {
+          console.error(`Failed to load ${key}:`, err);
+          setData((prev) => ({ ...prev, [key]: [] }));
+        })
         .finally(() => setLoading((prev) => ({ ...prev, [key]: false })));
     });
   }, []);
