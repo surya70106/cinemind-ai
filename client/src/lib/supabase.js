@@ -8,4 +8,3 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-export const WATCHLIST_TABLE = import.meta.env.VITE_SUPABASE_WATCHLIST_TABLE || 'watchlist';

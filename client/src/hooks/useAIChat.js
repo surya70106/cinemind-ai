@@ -27,6 +27,9 @@ export default function useAIChat() {
         body: JSON.stringify({ action: 'chat', message: text, history }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'AI request failed');
+      }
 
       const aiMessage = {
         role: 'assistant',

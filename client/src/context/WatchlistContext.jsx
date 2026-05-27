@@ -1,23 +1,10 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
-import { supabase, WATCHLIST_TABLE } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import WatchedRatingModal from '../components/WatchedRatingModal';
+import { watchlistApi } from '../services/api';
 
 const WatchlistContext = createContext(null);
-
-function mapRow(row) {
-  return {
-    id: row.movie_id,
-    title: row.movie_title,
-    poster_path: row.poster,
-    watched: row.watched ?? false,
-    liked: row.liked ?? false,
-    user_rating: row.user_rating != null ? Number(row.user_rating) : null,
-    added_at: row.created_at,
-    rowId: row.id,
-  };
-}
 
 function toMovieEntry(movie, extra = {}) {
   return {
@@ -57,13 +44,8 @@ export function WatchlistProvider({ children }) {
     const fetchWatchlist = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from(WATCHLIST_TABLE)
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        setItems((data || []).map(mapRow));
+        const payload = await watchlistApi.list();
+        setItems(payload?.results || []);
       } catch {
         setItems([]);
       } finally {
@@ -83,13 +65,7 @@ export function WatchlistProvider({ children }) {
     });
 
     try {
-      const { error } = await supabase.from(WATCHLIST_TABLE).upsert({
-        user_id: user.id,
-        movie_id: Number(movie.id),
-        movie_title: entry.title,
-        poster: entry.poster_path || '',
-      }, { onConflict: 'user_id,movie_id', ignoreDuplicates: true });
-      if (error && error.code !== '23505') throw error;
+      await watchlistApi.add(entry);
     } catch {
       setItems((prev) => prev.filter((m) => m.id !== movie.id));
     }
@@ -102,12 +78,7 @@ export function WatchlistProvider({ children }) {
     setItems((curr) => curr.filter((m) => m.id !== movieId));
 
     try {
-      const { error } = await supabase
-        .from(WATCHLIST_TABLE)
-        .delete()
-        .eq('user_id', user.id)
-        .eq('movie_id', Number(movieId));
-      if (error) throw error;
+      await watchlistApi.remove(movieId);
     } catch {
       setItems(prev);
     }
@@ -125,30 +96,12 @@ export function WatchlistProvider({ children }) {
     });
 
     try {
-      // Ensure row exists first
-      await supabase.from(WATCHLIST_TABLE).upsert({
-        user_id: user.id,
-        movie_id: Number(movie.id),
-        movie_title: movie.title || movie.name || '',
-        poster: movie.poster_path || '',
-      }, { onConflict: 'user_id,movie_id', ignoreDuplicates: true });
-
-      // Then update watched + rating
-      const { error } = await supabase
-        .from(WATCHLIST_TABLE)
-        .update({ watched: true, user_rating: rating })
-        .eq('user_id', user.id)
-        .eq('movie_id', Number(movie.id));
-      if (error) throw error;
+      await watchlistApi.add(movie);
+      await watchlistApi.update(movie.id, { watched: true, user_rating: rating });
       setRatingModal(null);
     } catch {
-      // Revert by refetching
-      const { data } = await supabase
-        .from(WATCHLIST_TABLE)
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      setItems((data || []).map(mapRow));
+      const payload = await watchlistApi.list().catch(() => ({ results: [] }));
+      setItems(payload.results || []);
     } finally {
       setRatingSaving(false);
     }
@@ -186,16 +139,12 @@ export function WatchlistProvider({ children }) {
 
     setItems((curr) => curr.map((m) => m.id === movieId ? { ...m, liked: !m.liked } : m));
 
-    const { error } = await supabase
-      .from(WATCHLIST_TABLE)
-      .update({ liked: !item.liked })
-      .eq('user_id', user.id)
-      .eq('movie_id', Number(movieId));
-
-    if (error) {
+    try {
+      await watchlistApi.update(movieId, { liked: !item.liked });
+    } catch {
       setItems((curr) => curr.map((m) => m.id === movieId ? { ...m, liked: item.liked } : m));
     }
-  }, [guardAuth, items, user?.id]);
+  }, [guardAuth, items]);
 
   const likeMovie = useCallback(async (movie) => {
     if (!guardAuth()) return;

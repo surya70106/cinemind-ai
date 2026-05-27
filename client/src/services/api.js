@@ -1,42 +1,55 @@
-import axios from 'axios';
+import { supabase } from '../lib/supabase';
 
-const api = axios.create({
-  baseURL: 'https://api.tvmaze.com',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+async function getAuthHeaders(extra = {}) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-// Request interceptor — attach JWT token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('cinemind_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Response interceptor — handle 401
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      const requestUrl = error.config?.url || '';
-      const isAuthAttempt =
-        requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register');
-
-      if (!isAuthAttempt) {
-        localStorage.removeItem('cinemind_token');
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
-      }
-    }
-    return Promise.reject(error);
+  const headers = { 'Content-Type': 'application/json', ...extra };
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
   }
-);
 
-export default api;
+  return headers;
+}
+
+export async function apiRequest(path, options = {}) {
+  const headers = await getAuthHeaders(options.headers);
+  const response = await fetch(path, { ...options, headers });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message = payload?.error || payload?.message || 'Request failed';
+    throw new Error(message);
+  }
+
+  return payload;
+}
+
+export const watchlistApi = {
+  async list() {
+    return apiRequest('/api/watchlist');
+  },
+  async add(movie) {
+    return apiRequest('/api/watchlist', {
+      method: 'POST',
+      body: JSON.stringify({
+        movie_id: Number(movie.id),
+        movie_title: movie.title || movie.name || '',
+        poster: movie.poster_path || '',
+      }),
+    });
+  },
+  async remove(movieId) {
+    return apiRequest('/api/watchlist', {
+      method: 'DELETE',
+      body: JSON.stringify({ movie_id: Number(movieId) }),
+    });
+  },
+  async update(movieId, updates) {
+    return apiRequest('/api/watchlist', {
+      method: 'PATCH',
+      body: JSON.stringify({ movie_id: Number(movieId), ...updates }),
+    });
+  },
+};

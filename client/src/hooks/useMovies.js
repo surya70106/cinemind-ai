@@ -1,63 +1,71 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '../services/api';
+import {
+  getTrending,
+  getPopular,
+  getTopRated,
+  getHiddenGems,
+  getShowDetails,
+  searchShows,
+} from '../lib/tvmaze';
 
 /**
  * Generic fetcher hook — returns { data, loading, error, refetch }
  */
-function useFetch(url, immediate = true) {
+function useFetch(fetcher, immediate = true) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(immediate);
   const [error, setError] = useState(null);
 
   const fetch = useCallback(async () => {
+    if (!fetcher) return;
     setLoading(true);
     setError(null);
     try {
-      const { data: result } = await api.get(url);
-      const d = result.data?.results || result.data || result.results || result;
+      const result = await fetcher();
+      const d = result?.results || result;
       setData(Array.isArray(d) ? d : d);
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Something went wrong');
+      setError(err.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }
-  }, [url]);
+  }, [fetcher]);
 
   useEffect(() => {
-    if (immediate && url) {
+    if (immediate && fetcher) {
       fetch();
     }
-  }, [fetch, immediate, url]);
+  }, [fetch, immediate, fetcher]);
 
   return { data, loading, error, refetch: fetch };
 }
 
 export function useTrending() {
-  return useFetch('/movies/trending');
+  return useFetch(getTrending);
 }
 
 export function usePopular() {
-  return useFetch('/movies/popular');
+  return useFetch(getPopular);
 }
 
 export function useTopRated() {
-  return useFetch('/movies/top-rated');
+  return useFetch(getTopRated);
 }
 
 export function useUpcoming() {
-  return useFetch('/movies/upcoming');
+  return useFetch(getTrending);
 }
 
 export function useHiddenGems() {
-  return useFetch('/movies/hidden-gems');
+  return useFetch(getHiddenGems);
 }
 
 export function useMovieDetails(id) {
-  return useFetch(id ? `/movies/${id}` : null, !!id);
+  return useFetch(id ? () => getShowDetails(id) : null, !!id);
 }
 
 export function useSearchMovies(query) {
-  return useFetch(query ? `/movies/search?q=${encodeURIComponent(query)}` : null, !!query);
+  return useFetch(query ? () => searchShows(query) : null, !!query);
 }
 
 /**
@@ -76,11 +84,11 @@ export function useMovieSearch() {
     setLoading(true);
     setError(null);
     try {
-      const { data: result } = await api.get(`/movies/search?q=${encodeURIComponent(query)}`);
-      const d = result.data?.results || result.data || result.results || result;
+      const result = await searchShows(query);
+      const d = result?.results || result;
       setData(Array.isArray(d) ? d : []);
     } catch (err) {
-      setError(err.response?.data?.message || err.message);
+      setError(err.message);
     } finally {
       setLoading(false);
     }

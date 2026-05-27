@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "description": "CineMind AI - TV show discovery powered by TVMaze + Claude AI",
   "private": true,
+  "scripts": {
+    "build": "npm run build --prefix client",
+    "dev": "npm run dev --prefix client"
+  },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.36.3"
+    "@anthropic-ai/sdk": "^0.36.3",
+    "@supabase/supabase-js": "^2.57.4"
   }
 }

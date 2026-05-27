@@ -48,6 +48,7 @@ export default function Discover() {
         }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'AI request failed');
       setResults(data.data || data.results || []);
     } catch {
       setResults([]);
