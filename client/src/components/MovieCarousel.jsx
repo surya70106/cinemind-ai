@@ -37,7 +37,7 @@ function useHorizontalScroll(movies) {
 /* ─── Section header ─── */
 function SectionHeader({ title, subtitle, scrollControls }) {
   return (
-    <div className="flex items-end justify-between mb-8">
+    <div className="flex items-end justify-between mb-5 sm:mb-8">
       <div className="flex flex-col gap-2">
         {subtitle && (
           <span className="text-label-caps text-accent-green tracking-[0.2em] uppercase">
@@ -47,7 +47,7 @@ function SectionHeader({ title, subtitle, scrollControls }) {
         <h2 className="text-headline">{title}</h2>
       </div>
       {scrollControls && (
-        <div className="flex gap-2">
+        <div className="hidden sm:flex gap-2">
           <button
             onClick={() => scrollControls.scroll('left')}
             disabled={!scrollControls.canScrollLeft}
@@ -73,7 +73,7 @@ function DefaultSkeleton() {
   return Array.from({ length: 8 }).map((_, i) => (
     <div
       key={i}
-      className="w-[140px] sm:w-[160px] md:w-[180px] lg:w-[200px] poster-aspect skeleton rounded-xl flex-shrink-0"
+      className="w-[124px] sm:w-[160px] md:w-[180px] lg:w-[200px] poster-aspect skeleton rounded-xl flex-shrink-0"
     />
   ));
 }
@@ -113,13 +113,13 @@ function DefaultCarousel({ title, subtitle, movies, loading }) {
   const controls = useHorizontalScroll(movies);
 
   return (
-    <section className="py-12">
-      <div className="max-w-[1440px] mx-auto px-6 lg:px-10">
+    <section className="py-6 sm:py-12">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
         <SectionHeader title={title} subtitle={subtitle} scrollControls={controls} />
       </div>
       <div
         ref={controls.scrollRef}
-        className="flex gap-6 overflow-x-auto hide-scrollbar pb-8 px-6 lg:px-10"
+        className="flex gap-4 sm:gap-6 overflow-x-auto hide-scrollbar pb-4 sm:pb-8 px-4 sm:px-6 lg:px-10"
       >
         {loading ? (
           <DefaultSkeleton />
@@ -127,7 +127,7 @@ function DefaultCarousel({ title, subtitle, movies, loading }) {
           movies.map((movie, i) => (
             <div
               key={movie.id}
-              className="w-[140px] sm:w-[160px] md:w-[180px] lg:w-[200px] flex-shrink-0"
+              className="w-[124px] sm:w-[160px] md:w-[180px] lg:w-[200px] flex-shrink-0"
             >
               <MovieCard movie={movie} index={i} />
             </div>

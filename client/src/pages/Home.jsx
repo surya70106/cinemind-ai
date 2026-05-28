@@ -39,7 +39,7 @@ export default function Home() {
     >
       <HeroSection />
 
-      <main className="relative z-20 -mt-16 space-y-16 pb-16">
+      <main className="relative z-20 -mt-8 sm:-mt-12 md:-mt-16 space-y-10 sm:space-y-12 md:space-y-16 pb-12 sm:pb-16">
         {sections.map(({ key, title }) => (
           <motion.div
             key={key}
@@ -47,7 +47,7 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-60px' }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="max-w-[1440px] mx-auto px-6 md:px-12"
+            className="max-w-[1440px] mx-auto px-4 sm:px-6 md:px-12"
           >
             <MovieCarousel
               title={title}

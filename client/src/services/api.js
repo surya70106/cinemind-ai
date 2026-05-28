@@ -1,6 +1,7 @@
-import { supabase } from '../lib/supabase';
+import { supabase, assertSupabaseConfigured } from '../lib/supabase';
 
 async function getAuthHeaders(extra = {}) {
+  assertSupabaseConfigured();
   const {
     data: { session },
   } = await supabase.auth.getSession();

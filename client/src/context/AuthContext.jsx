@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, assertSupabaseConfigured } from '../lib/supabase';
 
 const AuthContext = createContext(null);
 
@@ -19,11 +19,18 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    try {
+      assertSupabaseConfigured();
+    } catch {
+      setLoading(false);
+      return;
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(normalizeUser(session?.user ?? null));
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
 
     // Listen to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -34,12 +41,14 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
+    assertSupabaseConfigured();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
   }, []);
 
   const register = useCallback(async (name, email, password) => {
+    assertSupabaseConfigured();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -50,6 +59,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
+    assertSupabaseConfigured();
     await supabase.auth.signOut();
     setUser(null);
   }, []);

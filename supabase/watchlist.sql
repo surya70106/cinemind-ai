@@ -14,9 +14,19 @@ create table if not exists public.watchlist (
   unique (user_id, movie_id)
 );
 
--- If table already exists:
--- alter table public.watchlist add column if not exists user_rating numeric(3,1);
+-- Backfill/repair for existing tables created from older schema.
+alter table public.watchlist add column if not exists movie_id bigint;
+alter table public.watchlist add column if not exists watched boolean not null default false;
+alter table public.watchlist add column if not exists liked boolean not null default false;
+alter table public.watchlist add column if not exists user_rating numeric(3,1);
 
+-- Optional: if you know every row should have movie_id, run this after backfilling values.
+-- alter table public.watchlist alter column movie_id set not null;
+
+drop index if exists watchlist_user_movie_idx;
+drop index if exists watchlist_user_movie_id_idx;
+drop index if exists watchlist_user_movie_unique_idx;
+create unique index if not exists watchlist_user_movie_idx on public.watchlist (user_id, movie_id);
 create index if not exists watchlist_user_id_idx on public.watchlist (user_id);
 
 alter table public.watchlist enable row level security;

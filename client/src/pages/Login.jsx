@@ -36,7 +36,12 @@ export default function Login() {
       }
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Something went wrong');
+      const msg = String(err?.message || '');
+      if (msg.toLowerCase().includes('failed to fetch')) {
+        setError('Cannot reach Supabase. Check VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.');
+      } else {
+        setError(msg || 'Something went wrong');
+      }
     } finally {
       setLoading(false);
     }
@@ -49,10 +54,10 @@ export default function Login() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen flex items-center justify-center px-4 pb-16"
+      className="min-h-screen flex items-center justify-center px-4 sm:px-6 pb-10 sm:pb-16"
       style={{ paddingTop: navH + 32 }}
     >
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm sm:max-w-md">
         <div className="panel shadow-xl shadow-black/30 panel-body">
           <div className="mb-8">
             <h1 className="font-display text-headline text-text-primary leading-none">CINEMIND</h1>

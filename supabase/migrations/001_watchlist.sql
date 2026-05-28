@@ -11,7 +11,13 @@ create table if not exists public.watchlist (
   created_at timestamptz not null default now()
 );
 
+alter table public.watchlist add column if not exists movie_id bigint;
+alter table public.watchlist add column if not exists watched boolean not null default false;
+alter table public.watchlist add column if not exists liked boolean not null default false;
+alter table public.watchlist add column if not exists created_at timestamptz not null default now();
+
 -- Prevent duplicate shows per user
+drop index if exists watchlist_user_movie_idx;
 create unique index if not exists watchlist_user_movie_idx
   on public.watchlist (user_id, movie_id);
 
