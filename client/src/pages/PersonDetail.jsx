@@ -16,21 +16,43 @@ export default function PersonDetail() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   useEffect(() => {
+    if (!id || id === 'undefined' || id === 'null') {
+      setError('Person not found');
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
     const fetchPerson = async () => {
       setLoading(true);
       setError(null);
       try {
         const data = await getPersonDetails(id);
-        setPerson(data);
+        if (!cancelled) {
+          if (!data?.id) throw new Error('Person not found');
+          setPerson(data);
+        }
       } catch {
-        setError('Person not found');
+        if (!cancelled) {
+          setPerson(null);
+          setError('Person not found');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchPerson();
     window.scrollTo(0, 0);
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
+
+  const handleBack = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate('/');
+  };
 
   const openLightbox = (index) => {
     setLightboxIndex(index);
@@ -67,7 +89,7 @@ export default function PersonDetail() {
           <div className="text-5xl mb-3">👤</div>
           <h2 className="font-display text-xl font-bold text-text-primary mb-2">Not Found</h2>
           <p className="text-text-muted mb-5 text-sm">This person doesn't exist in our database.</p>
-          <button onClick={() => navigate(-1)} className="px-5 py-2 rounded-lg border border-outline-variant/30 text-text-primary text-sm hover:bg-surface-container-high transition-colors">
+          <button onClick={handleBack} className="px-5 py-2 rounded-lg border border-outline-variant/30 text-text-primary text-sm hover:bg-surface-container-high transition-colors">
             ← Go Back
           </button>
         </div>
@@ -89,7 +111,7 @@ export default function PersonDetail() {
       <div className="max-w-[1440px] mx-auto px-6 md:px-12 py-8 md:py-12">
         {/* Back */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant/30 text-text-muted text-xs hover:text-text-primary hover:bg-surface-container-high transition-colors mb-6"
         >
           <span className="material-symbols-outlined text-sm">arrow_back</span> Back

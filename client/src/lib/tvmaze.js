@@ -77,6 +77,10 @@ function sortByRating(shows, limit = 20) {
   return picked.slice(0, limit).map(normalizeShow);
 }
 
+const HERO_SHOW_IDS = [63234, 38753, 15299]; // Daredevil: Born Again, Avatar: The Last Airbender, The Boys
+const BLOOMBERG_BRIEF_ID = 84705;
+const DAREDEVIL_BORN_AGAIN_ID = 63234;
+
 // ── List endpoints ──────────────────────────────────────────
 
 export async function getTrending() {
@@ -92,7 +96,19 @@ export async function getTrending() {
       }
       if (shows.length >= 20) break;
     }
-    return { results: shows };
+    const filtered = shows.filter((show) => show?.id !== BLOOMBERG_BRIEF_ID);
+
+    const hasDaredevil = filtered.some((show) => show?.id === DAREDEVIL_BORN_AGAIN_ID);
+    if (!hasDaredevil) {
+      try {
+        const daredevil = normalizeShow(await tvmazeFetch(`shows/${DAREDEVIL_BORN_AGAIN_ID}`));
+        if (daredevil) filtered.unshift(daredevil);
+      } catch (err) {
+        console.error('Failed to inject Daredevil: Born Again into trending:', err);
+      }
+    }
+
+    return { results: filtered.slice(0, 20) };
   });
 }
 
@@ -132,10 +148,12 @@ export async function getHiddenGems() {
 /** Featured hero slides — first 3 shows with images from TVMaze page 1 */
 export async function getFeaturedShows() {
   return cached('featured', async () => {
-    const data = await tvmazeFetch('shows', { page: '1' });
-    const withImages = data.filter((s) => s.image?.original || s.image?.medium);
-    const picks = (withImages.length >= 3 ? withImages : data).slice(0, 3);
-    return picks.map(normalizeShow).filter(Boolean);
+    const settled = await Promise.allSettled(HERO_SHOW_IDS.map((id) => tvmazeFetch(`shows/${id}`)));
+    const picks = settled
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => normalizeShow(result.value))
+      .filter(Boolean);
+    return picks;
   });
 }
 
@@ -165,7 +183,8 @@ export async function getShowDetails(id) {
         name: c.person?.name,
         character: c.character?.name || '',
         profile_path: c.person?.image?.medium || null,
-      })),
+      }))
+        .filter((c) => Number.isFinite(c.id) && c.name),
     };
 
     show.videos = { results: [] };
