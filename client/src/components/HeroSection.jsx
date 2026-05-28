@@ -78,7 +78,7 @@ export default function HeroSection() {
             <img
               src={featured.backdrop_path}
               alt=""
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover object-top"
             />
           </motion.div>
         )}

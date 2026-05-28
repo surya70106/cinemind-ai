@@ -77,7 +77,7 @@ function sortByRating(shows, limit = 20) {
   return picked.slice(0, limit).map(normalizeShow);
 }
 
-const HERO_SHOW_IDS = [63234, 38753, 15299]; // Daredevil: Born Again, Avatar: The Last Airbender, The Boys
+const HERO_SHOW_IDS = [63234, 555, 15299]; // Daredevil: Born Again, Avatar: The Last Airbender (2005), The Boys
 const BLOOMBERG_BRIEF_ID = 84705;
 const DAREDEVIL_BORN_AGAIN_ID = 63234;
 
