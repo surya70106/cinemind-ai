@@ -77,9 +77,9 @@ function sortByRating(shows, limit = 20) {
   return picked.slice(0, limit).map(normalizeShow);
 }
 
-const HERO_SHOW_IDS = [63234, 555, 15299]; // Daredevil: Born Again, Avatar: The Last Airbender (2005), The Boys
+const HERO_SHOW_IDS = [1369, 555, 15299]; // Marvel's Daredevil (2015), Avatar: The Last Airbender (2005), The Boys
 const BLOOMBERG_BRIEF_ID = 84705;
-const DAREDEVIL_BORN_AGAIN_ID = 63234;
+const MARVEL_DAREDEVIL_ID = 1369;
 
 // ── List endpoints ──────────────────────────────────────────
 
@@ -98,13 +98,13 @@ export async function getTrending() {
     }
     const filtered = shows.filter((show) => show?.id !== BLOOMBERG_BRIEF_ID);
 
-    const hasDaredevil = filtered.some((show) => show?.id === DAREDEVIL_BORN_AGAIN_ID);
+    const hasDaredevil = filtered.some((show) => show?.id === MARVEL_DAREDEVIL_ID);
     if (!hasDaredevil) {
       try {
-        const daredevil = normalizeShow(await tvmazeFetch(`shows/${DAREDEVIL_BORN_AGAIN_ID}`));
+        const daredevil = normalizeShow(await tvmazeFetch(`shows/${MARVEL_DAREDEVIL_ID}`));
         if (daredevil) filtered.unshift(daredevil);
       } catch (err) {
-        console.error('Failed to inject Daredevil: Born Again into trending:', err);
+        console.error("Failed to inject Marvel's Daredevil into trending:", err);
       }
     }
 

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { getPersonDetails } from '../lib/tvmaze';
-import { useNavbarHeight } from '../hooks/useNavbarHeight';
 
 
 
@@ -14,6 +13,11 @@ export default function PersonDetail() {
   const [error, setError] = useState(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  const galleryImages = getGalleryImages(person);
+  const safeCredits = Array.isArray(person?.castCredits)
+    ? person.castCredits.filter((credit) => credit?.show?.id && credit?.show?.title)
+    : [];
 
   useEffect(() => {
     if (!id || id === 'undefined' || id === 'null') {
@@ -31,6 +35,8 @@ export default function PersonDetail() {
         if (!cancelled) {
           if (!data?.id) throw new Error('Person not found');
           setPerson(data);
+          setLightboxOpen(false);
+          setLightboxIndex(0);
         }
       } catch {
         if (!cancelled) {
@@ -55,18 +61,19 @@ export default function PersonDetail() {
   };
 
   const openLightbox = (index) => {
+    if (galleryImages.length === 0) return;
     setLightboxIndex(index);
     setLightboxOpen(true);
   };
 
   const nextImage = () => {
-    if (!person?.images) return;
-    setLightboxIndex((prev) => (prev + 1) % person.images.length);
+    if (galleryImages.length <= 1) return;
+    setLightboxIndex((prev) => (prev + 1) % galleryImages.length);
   };
 
   const prevImage = () => {
-    if (!person?.images) return;
-    setLightboxIndex((prev) => (prev - 1 + person.images.length) % person.images.length);
+    if (galleryImages.length <= 1) return;
+    setLightboxIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
   };
 
   useEffect(() => {
@@ -98,19 +105,10 @@ export default function PersonDetail() {
   }
 
   const age = person.birthday ? calculateAge(person.birthday, person.deathday) : null;
-  const allImages = person.images || [];
-  const safeCredits = Array.isArray(person.castCredits)
-    ? person.castCredits.filter((credit) => credit?.show?.id && credit?.show?.title)
-    : [];
-  // Add main image to gallery if not already there
-  const galleryImages = person.image_original
-    ? [{ id: 'main', medium: person.image, original: person.image_original }, ...allImages]
-    : allImages;
-
-  const navH = useNavbarHeight();
+  const activeImage = galleryImages[lightboxIndex] || galleryImages[0] || null;
 
   return (
-    <motion.main initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="min-h-screen" style={{ paddingTop: navH + 32 }}>
+    <motion.main initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="min-h-screen pt-28">
       <div className="max-w-[1440px] mx-auto px-6 md:px-12 py-8 md:py-12">
         {/* Back */}
         <button
@@ -295,7 +293,7 @@ export default function PersonDetail() {
 
       {/* Lightbox */}
       <AnimatePresence>
-        {lightboxOpen && galleryImages.length > 0 && (
+        {lightboxOpen && activeImage && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -323,7 +321,7 @@ export default function PersonDetail() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.2 }}
-              src={galleryImages[lightboxIndex].original || galleryImages[lightboxIndex].medium}
+              src={activeImage.original || activeImage.medium}
               alt={person.name}
               className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
@@ -404,4 +402,14 @@ function calculateAge(birthday, deathday) {
   } catch {
     return null;
   }
+}
+
+function getGalleryImages(person) {
+  if (!person) return [];
+  const allImages = Array.isArray(person.images) ? person.images : [];
+  const mainImage = person.image_original
+    ? [{ id: 'main', medium: person.image || null, original: person.image_original }]
+    : [];
+
+  return [...mainImage, ...allImages].filter((img) => img && (img.medium || img.original));
 }
