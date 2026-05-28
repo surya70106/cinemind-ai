@@ -215,14 +215,23 @@ export async function getSimilarShows(id) {
 }
 
 export async function getPersonDetails(id) {
-  return cached(`person_${id}`, async () => {
+  const personId = String(id ?? '').trim();
+  if (!personId || personId === 'undefined' || personId === 'null') {
+    throw new Error('Invalid person id');
+  }
+
+  return cached(`person_${personId}`, async () => {
     const [personRes, creditsRes, imagesRes] = await Promise.allSettled([
-      tvmazeFetch(`people/${id}`),
-      tvmazeFetch(`people/${id}/castcredits`, { embed: 'show' }),
-      tvmazeFetch(`people/${id}/images`),
+      tvmazeFetch(`people/${personId}`),
+      tvmazeFetch(`people/${personId}/castcredits`, { embed: 'show' }),
+      tvmazeFetch(`people/${personId}/images`),
     ]);
 
-    const person = personRes.status === 'fulfilled' ? personRes.value : {};
+    if (personRes.status !== 'fulfilled' || !personRes.value?.id) {
+      throw new Error('Person not found');
+    }
+
+    const person = personRes.value;
     const credits = creditsRes.status === 'fulfilled' ? creditsRes.value : [];
     const imgs = imagesRes.status === 'fulfilled' ? imagesRes.value : [];
 
@@ -232,7 +241,7 @@ export async function getPersonDetails(id) {
             character: c._links?.character?.name || '',
             show: c._embedded?.show ? normalizeShow(c._embedded.show) : null,
           }))
-          .filter((c) => c.show)
+          .filter((c) => c.show && Number.isFinite(c.show.id) && c.show.title)
       : [];
 
     const images = Array.isArray(imgs)

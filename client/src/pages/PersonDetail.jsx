@@ -99,6 +99,9 @@ export default function PersonDetail() {
 
   const age = person.birthday ? calculateAge(person.birthday, person.deathday) : null;
   const allImages = person.images || [];
+  const safeCredits = Array.isArray(person.castCredits)
+    ? person.castCredits.filter((credit) => credit?.show?.id && credit?.show?.title)
+    : [];
   // Add main image to gallery if not already there
   const galleryImages = person.image_original
     ? [{ id: 'main', medium: person.image, original: person.image_original }, ...allImages]
@@ -188,7 +191,7 @@ export default function PersonDetail() {
             {/* Stats */}
             <div className="flex gap-4 mb-6">
               <div className="px-4 py-3 rounded-lg bg-surface-container-high border border-outline-variant/30 text-center">
-                <div className="text-xl font-bold text-accent-green font-mono">{person.castCredits?.length || 0}</div>
+                <div className="text-xl font-bold text-accent-green font-mono">{safeCredits.length}</div>
                 <div className="text-[10px] text-text-muted uppercase tracking-wide mt-0.5">Shows</div>
               </div>
               <div className="px-4 py-3 rounded-lg bg-surface-container-high border border-outline-variant/30 text-center">
@@ -242,7 +245,7 @@ export default function PersonDetail() {
         )}
 
         {/* Known For / Cast Credits */}
-        {person.castCredits?.length > 0 && (
+        {safeCredits.length > 0 && (
           <motion.section
             initial={{ opacity: 0, y: 15 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -250,7 +253,7 @@ export default function PersonDetail() {
           >
             <h2 className="section-header mb-4">Known For</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {person.castCredits.map((credit, i) => (
+              {safeCredits.map((credit, i) => (
                 <Link
                   key={`${credit.show.id}-${i}`}
                   to={`/movie/${credit.show.id}`}

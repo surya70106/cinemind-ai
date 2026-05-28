@@ -9,11 +9,19 @@ export function useNavbarHeight(defaultHeight = 72) {
   const [height, setHeight] = useState(defaultHeight);
 
   useLayoutEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
     const navbar = document.getElementById('navbar');
     if (!navbar) return;
 
     const update = () => setHeight(navbar.getBoundingClientRect().height);
     update();
+
+    // Guard for browsers/environments where ResizeObserver is unavailable.
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update, { passive: true });
+      return () => window.removeEventListener('resize', update);
+    }
 
     const ro = new ResizeObserver(update);
     ro.observe(navbar);
