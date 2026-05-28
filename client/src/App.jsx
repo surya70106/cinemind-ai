@@ -28,6 +28,7 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/discover" element={<Discover />} />
               <Route path="/movie/:id" element={<MovieDetail />} />
+              <Route path="/show/:id" element={<MovieDetail />} />
               <Route path="/person/:id" element={<PersonDetail />} />
               <Route path="/watchlist" element={<Watchlist />} />
               <Route

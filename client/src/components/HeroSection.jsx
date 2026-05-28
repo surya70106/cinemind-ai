@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router';
-import { getShowDetails } from '../lib/tvmaze';
+import { getFeaturedShows } from '../lib/tvmaze';
+
+const ROTATE_MS = 5000;
 
 const staggerItem = {
   hidden: { opacity: 0, y: 20 },
@@ -15,31 +17,42 @@ export default function HeroSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchHeroShows = async () => {
+    let cancelled = false;
+
+    const load = async () => {
       try {
-        const ids = [555, 66, 431]; // Avatar, Big Bang Theory, Friends
-        const results = await Promise.allSettled(ids.map((id) => getShowDetails(id)));
-        const fetchedShows = results
-          .filter((r) => r.status === 'fulfilled')
-          .map((r) => r.value)
-          .filter(Boolean);
-        setShows(fetchedShows);
+        const featured = await getFeaturedShows();
+        if (!cancelled) setShows(featured);
       } catch (err) {
         console.error('Failed to fetch hero shows:', err);
+        if (!cancelled) setShows([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    fetchHeroShows();
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const goTo = useCallback(
+    (index) => {
+      if (shows.length === 0) return;
+      setCurrentIndex(((index % shows.length) + shows.length) % shows.length);
+    },
+    [shows.length]
+  );
+
+  const goNext = useCallback(() => goTo(currentIndex + 1), [currentIndex, goTo]);
+  const goPrev = useCallback(() => goTo(currentIndex - 1), [currentIndex, goTo]);
 
   useEffect(() => {
     if (shows.length <= 1) return;
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % shows.length);
-    }, 8000);
+    const timer = setInterval(goNext, ROTATE_MS);
     return () => clearInterval(timer);
-  }, [shows.length]);
+  }, [shows.length, goNext]);
 
   const featured = shows[currentIndex] || null;
 
@@ -49,23 +62,21 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="relative min-h-screen overflow-hidden">
-      {/* Fallback gradient */}
+    <section className="relative min-h-[70vh] md:min-h-screen overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-bg-secondary via-bg-primary to-bg-tertiary" />
 
-      {/* Rotating Backdrops */}
       <AnimatePresence mode="popLayout">
-        {shows.length > 0 && (
+        {featured?.backdrop_path && (
           <motion.div
-            key={currentIndex}
+            key={featured.id}
             initial={{ opacity: 0, scale: 1.05 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 1.5, ease: 'easeInOut' }}
+            transition={{ duration: 1.2, ease: 'easeInOut' }}
             className="absolute inset-0"
           >
             <img
-              src={shows[currentIndex]?.backdrop_path}
+              src={featured.backdrop_path}
               alt=""
               className="w-full h-full object-cover"
             />
@@ -73,12 +84,40 @@ export default function HeroSection() {
         )}
       </AnimatePresence>
 
-      {/* Hero Scrim overlay */}
       <div className="hero-scrim absolute inset-0" />
 
-      {/* Content — bottom-left aligned */}
-      <div className="relative z-10 flex flex-col justify-end min-h-screen pb-24 w-full max-w-[1440px] mx-auto px-6 md:px-12">
-        {featured && (
+      {/* Prev / next */}
+      {shows.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={goPrev}
+            className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full border border-white/20 bg-black/40 backdrop-blur-md flex items-center justify-center text-white/90 hover:bg-black/60 transition-colors"
+            aria-label="Previous featured show"
+          >
+            <span className="material-symbols-outlined">chevron_left</span>
+          </button>
+          <button
+            type="button"
+            onClick={goNext}
+            className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full border border-white/20 bg-black/40 backdrop-blur-md flex items-center justify-center text-white/90 hover:bg-black/60 transition-colors"
+            aria-label="Next featured show"
+          >
+            <span className="material-symbols-outlined">chevron_right</span>
+          </button>
+        </>
+      )}
+
+      <div className="relative z-10 flex flex-col justify-end min-h-[70vh] md:min-h-screen pb-28 md:pb-32 w-full max-w-[1440px] mx-auto px-6 md:px-12">
+        {loading && (
+          <div className="max-w-3xl space-y-4 animate-pulse">
+            <div className="h-6 w-24 rounded bg-white/10" />
+            <div className="h-12 w-2/3 rounded bg-white/10" />
+            <div className="h-20 w-full rounded bg-white/10" />
+          </div>
+        )}
+
+        {!loading && featured && (
           <motion.div
             key={featured.id}
             initial="hidden"
@@ -89,18 +128,15 @@ export default function HeroSection() {
             }}
             className="max-w-3xl space-y-4"
           >
-            {/* Badges row */}
             <motion.div
               variants={staggerItem}
               transition={{ duration: 0.5 }}
               className="flex flex-wrap items-center gap-3"
             >
-              {/* FEATURED badge */}
               <span className="bg-accent-green/20 text-accent-green px-3 py-1 rounded text-metadata border border-accent-green/30 uppercase tracking-widest">
                 Featured
               </span>
 
-              {/* Star rating */}
               {featured.vote_average > 0 && (
                 <span className="flex items-center gap-1 text-accent-green">
                   <span
@@ -115,24 +151,21 @@ export default function HeroSection() {
                 </span>
               )}
 
-              {/* Year */}
-              {(featured.release_date || featured.first_air_date) && (
+              {featured.release_date && (
                 <span className="text-text-muted text-sm font-mono">
-                  {(featured.release_date || featured.first_air_date)?.slice(0, 4)}
+                  {featured.release_date.slice(0, 4)}
                 </span>
               )}
             </motion.div>
 
-            {/* Title */}
             <motion.h1
               variants={staggerItem}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
               className="text-display text-text-primary"
             >
-              {featured.title || featured.name}
+              {featured.title}
             </motion.h1>
 
-            {/* Description */}
             <motion.p
               variants={staggerItem}
               transition={{ duration: 0.5 }}
@@ -141,7 +174,6 @@ export default function HeroSection() {
               {truncate(featured.overview)}
             </motion.p>
 
-            {/* Buttons */}
             <motion.div
               variants={staggerItem}
               transition={{ duration: 0.5 }}
@@ -152,7 +184,7 @@ export default function HeroSection() {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 className="btn btn-primary h-11 px-7 min-w-[170px] rounded-lg"
-                aria-label={`Explore ${featured.title || featured.name}`}
+                aria-label={`Explore ${featured.title}`}
               >
                 <span
                   className="material-symbols-outlined text-lg"
@@ -168,7 +200,7 @@ export default function HeroSection() {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 className="btn btn-surface h-11 px-6 rounded-lg"
-                aria-label={`More info about ${featured.title || featured.name}`}
+                aria-label={`More info about ${featured.title}`}
               >
                 <span className="material-symbols-outlined text-lg">info</span>
                 <span className="text-label-caps text-text-primary">More Info</span>
@@ -177,6 +209,24 @@ export default function HeroSection() {
           </motion.div>
         )}
       </div>
+
+      {/* Dot indicators */}
+      {shows.length > 1 && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+          {shows.map((show, i) => (
+            <button
+              key={show.id}
+              type="button"
+              onClick={() => goTo(i)}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                i === currentIndex ? 'w-8 bg-accent-green' : 'w-2 bg-white/40 hover:bg-white/60'
+              }`}
+              aria-label={`Go to slide ${i + 1}`}
+              aria-current={i === currentIndex ? 'true' : undefined}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

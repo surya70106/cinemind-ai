@@ -28,11 +28,21 @@ export default function MovieDetail() {
   const myRating = getUserRating(Number(id));
 
   useEffect(() => {
+    if (!id || id === 'undefined' || id === 'null') {
+      setMovie(null);
+      setError('Show not found');
+      setLoading(false);
+      return;
+    }
+
     const fetchMovie = async () => {
       setLoading(true);
       setError(null);
       try {
         const movieData = await getShowDetails(id);
+        if (!movieData?.id) {
+          throw new Error('Show not found');
+        }
         setMovie(movieData);
 
         try {

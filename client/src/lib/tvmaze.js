@@ -1,35 +1,30 @@
 /**
- * TVMaze API — public, no API key required.
- * Production uses /api/tvmaze proxy (Vercel serverless) to avoid browser CORS/network issues.
+ * TVMaze API — public, no API key required. Called directly from the browser (CORS enabled).
  */
 
-const TVMAZE_DIRECT = 'https://api.tvmaze.com';
-const USE_PROXY = false;
+const TVMAZE_BASE = 'https://api.tvmaze.com';
 
 /** Simple in-memory cache to avoid hammering the API */
 const _cache = new Map();
 
-async function tvmazeFetch(path, query = {}) {
-  let res;
-  const cleanPath = path.replace(/^\/+/, '');
+function buildQueryString(query = {}) {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value == null) return;
+    if (Array.isArray(value)) {
+      value.forEach((v) => params.append(key, String(v)));
+    } else {
+      params.append(key, String(value));
+    }
+  });
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
 
-  if (USE_PROXY) {
-    const params = new URLSearchParams();
-    params.set('path', cleanPath);
-    Object.entries(query).forEach(([key, value]) => {
-      if (value == null) return;
-      if (Array.isArray(value)) {
-        value.forEach((v) => params.append(key, String(v)));
-      } else {
-        params.set(key, String(value));
-      }
-    });
-    res = await fetch(`/api/tvmaze?${params}`);
-  } else {
-    const qs = new URLSearchParams(query).toString();
-    const url = `${TVMAZE_DIRECT}/${cleanPath}${qs ? `?${qs}` : ''}`;
-    res = await fetch(url);
-  }
+async function tvmazeFetch(path, query = {}) {
+  const cleanPath = path.replace(/^\/+/, '');
+  const url = `${TVMAZE_BASE}/${cleanPath}${buildQueryString(query)}`;
+  const res = await fetch(url);
 
   if (!res.ok) {
     throw new Error(`TVMaze request failed (${res.status}): ${path}`);
@@ -56,6 +51,7 @@ function normalizeShow(show) {
     backdrop_path: show.image?.original || show.image?.medium || null,
     vote_average: show.rating?.average || 0,
     release_date: show.premiered || '',
+    first_air_date: show.premiered || '',
     overview: show.summary ? show.summary.replace(/<[^>]+>/g, '') : '',
     genres: (show.genres || []).map((g) => ({ id: g, name: g })),
     genre_names: show.genres || [],
@@ -133,6 +129,16 @@ export async function getHiddenGems() {
   });
 }
 
+/** Featured hero slides — first 3 shows with images from TVMaze page 1 */
+export async function getFeaturedShows() {
+  return cached('featured', async () => {
+    const data = await tvmazeFetch('shows', { page: '1' });
+    const withImages = data.filter((s) => s.image?.original || s.image?.medium);
+    const picks = (withImages.length >= 3 ? withImages : data).slice(0, 3);
+    return picks.map(normalizeShow).filter(Boolean);
+  });
+}
+
 export async function searchShows(query) {
   if (!query?.trim()) return { results: [] };
   const data = await tvmazeFetch('search/shows', { q: query.trim() });
@@ -142,8 +148,13 @@ export async function searchShows(query) {
 // ── Detail endpoints ───────────────────────────────────────
 
 export async function getShowDetails(id) {
-  return cached(`show_${id}`, async () => {
-    const data = await tvmazeFetch(`shows/${id}`, {
+  const showId = String(id ?? '').trim();
+  if (!showId || showId === 'undefined' || showId === 'null') {
+    throw new Error('Invalid show id');
+  }
+
+  return cached(`show_${showId}`, async () => {
+    const data = await tvmazeFetch(`shows/${showId}`, {
       'embed[]': ['cast', 'episodes'],
     });
     const show = normalizeShow(data);
